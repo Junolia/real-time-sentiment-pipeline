@@ -1,0 +1,8 @@
+praw
+kafka-python
+pyspark
+boto3
+pandas
+numpy
+jupyter
+pytest
