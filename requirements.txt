@@ -3,4 +3,5 @@ charset-normalizer==3.4.6
 idna==3.11
 kafka-python==2.3.0
 requests==2.32.5
+pyspark
 urllib3==2.6.3
