@@ -52,7 +52,10 @@ while True:
                 'type': 'comment' if 'body' in item else 'post',
                 
                 # easier for data aggregation
-                'created_utc': item.get('created_utc')
+                'created_utc': item.get('created_utc'),
+                'parent_id': item.get('parent_id'),
+                'comment_id': item.get('id'),
+                'link_id': item.get('link_id')
             }
             
             # Send to kafka (with confirmation in the terminal)
