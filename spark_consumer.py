@@ -1,3 +1,5 @@
+import os
+from pyspark.sql.functions import to_json, struct
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import (
     col,
@@ -100,7 +102,19 @@ def main():
         .getOrCreate()
     )
 
+    # AWS configuration for s3a
+    hadoop_conf = spark.sparkContext._jsc.hadoopConfiguration()
+    hadoop_conf.set("fs.s3a.access.key", os.environ.get("AWS_ACCESS_KEY_ID"))
+    hadoop_conf.set("fs.s3a.secret.key", os.environ.get("AWS_SECRET_ACCESS_KEY"))
+    hadoop_conf.set("fs.s3a.session.token", os.environ.get("AWS_SESSION_TOKEN"))
+    hadoop_conf.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider")
+    
+    hadoop_conf.set("fs.s3a.endpoint", "s3.amazonaws.com")
+    hadoop_conf.set("fs.s3a.impl", "org.apache.hadoop.fs.s3a.S3AFileSystem")
+
     spark.sparkContext.setLogLevel("WARN")
+
+    S3_BUCKET = "s3a://reddit-sentiment-pipeline-selena"
 
     # Read raw Kafka stream
     raw_stream = (
@@ -157,103 +171,38 @@ def main():
         .filter(col("event_time").isNotNull())
     )
 
-    # ----------------------------
-    # Aggregation 1: time-window + subreddit
-    # ----------------------------
-    subreddit_aggregated = (
-        scored_with_time
-        .groupBy(
-            window(col("event_time"), "5 minutes"),
-            col("subreddit")
-        )
-        .agg(
-            avg("sentiment_score").alias("avg_sentiment_score"),
-            avg("weighted_score").alias("avg_weighted_score"),
-            count("*").alias("total_messages"),
-            spark_sum(
-                when(col("sentiment_label") == "positive", 1).otherwise(0)
-            ).alias("positive_count"),
-            spark_sum(
-                when(col("sentiment_label") == "negative", 1).otherwise(0)
-            ).alias("negative_count"),
-            spark_sum(
-                when(col("sentiment_label") == "neutral", 1).otherwise(0)
-            ).alias("neutral_count")
-        )
-        .select(
-            col("window.start").alias("window_start"),
-            col("window.end").alias("window_end"),
-            col("subreddit"),
-            col("avg_sentiment_score"),
-            col("avg_weighted_score"),
-            col("total_messages"),
-            col("positive_count"),
-            col("negative_count"),
-            col("neutral_count")
-        )
+    # packaged the cleaned/scored data to JSON format for downstream processing
+    kafka_output = scored_with_time.select(
+        to_json(struct("*")).alias("value")
     )
 
-    # ----------------------------
-    # Aggregation 2: thread-level by link_id
-    # ----------------------------
-    thread_aggregated = (
-        scored_with_time
-        .filter(col("link_id").isNotNull())
-        .groupBy(
-            col("link_id"),
-            col("parent_post_clean"),
-            col("subreddit")
-        )
-        .agg(
-            avg("sentiment_score").alias("avg_sentiment_score"),
-            avg("weighted_score").alias("avg_weighted_score"),
-            count("*").alias("total_messages"),
-            spark_sum(
-                when(col("sentiment_label") == "positive", 1).otherwise(0)
-            ).alias("positive_count"),
-            spark_sum(
-                when(col("sentiment_label") == "negative", 1).otherwise(0)
-            ).alias("negative_count"),
-            spark_sum(
-                when(col("sentiment_label") == "neutral", 1).otherwise(0)
-            ).alias("neutral_count")
-        )
-    )
+    # route 1: backup to S3 for long term analysis
 
-    # ----------------------------
-    # Output 1: subreddit aggregation to console
-    # ----------------------------
-    subreddit_query = (
-        subreddit_aggregated.writeStream
-        .outputMode("complete")
-        .format("console")
-        .option("truncate", False)
-        .option("numRows", 50)
-        .option("checkpointLocation", "./checkpoints/reddit_subreddit_agg_v2")
-        .queryName("subreddit_aggregation")
+    s3_query = (
+        scored_with_time.writeStream
+        .outputMode("append")
+        .format("parquet")
+        .option("path", f"{S3_BUCKET}/processed/raw_scored_stream/")
+        .option("checkpointLocation", "./checkpoints/s3_cold_storage")
         .start()
     )
 
-    # ----------------------------
-    # Output 2: thread aggregation to console
-    # ----------------------------
-    thread_query = (
-        thread_aggregated.writeStream
-        .outputMode("complete")
-        .format("console")
-        .option("truncate", False)
-        .option("numRows", 50)
-        .option("checkpointLocation", "./checkpoints/reddit_thread_agg_v2")
-        .queryName("thread_aggregation")
+    # route 2: wrap up real-time data and send back to Kafka for real-time visualization in Streamlit
+    kafka_query = (
+        kafka_output.writeStream
+        .format("kafka")
+        .option("kafka.bootstrap.servers", KAFKA_BROKER)
+        .option("topic", "dashboard_feed")
+        .option("checkpointLocation", "./checkpoints/kafka_dashboard_feed")
+        .trigger(processingTime='1 second')
         .start()
     )
 
-    print(f"Spark consumer running. Listening on Kafka topic: {TOPIC}")
-    print("Streaming query 1: 5-minute sentiment by subreddit")
-    print("Streaming query 2: sentiment by thread/link_id")
+    print(f"Spark Processing Engine Active.")
+    print(f"-> Routing Cold Data to S3 ({S3_BUCKET})")
+    print(f"-> Routing Hot Stream to Kafka Topic: dashboard_feed")
 
     spark.streams.awaitAnyTermination()
-
 
 if __name__ == "__main__":
     main()
