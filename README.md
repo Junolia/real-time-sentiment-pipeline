@@ -66,6 +66,7 @@ The final output is rendered via a Streamlit application engineered with a dual-
 * **Apache Kafka:** Must be installed and running locally on port `9092`.
 * **Python 3.12+:** With virtual environment containing `pyspark`, `kafka-python`, `streamlit`, `pandas`, `plotly`, and `vaderSentiment`.
 * **AWS Credentials:** Configured locally or passed via environment variables for S3 access.
+* **Create a S3 bucket:** Renamed the Keep the configuration as default.
 
 ### Execution Steps
 
@@ -82,7 +83,15 @@ Download the Kaggle dataset to the project root, then run the amplifier to build
 python data_amplifier.py
 ```
 
-**3. Start the Spark Engine**
+**3. Add AWS Credential**
+Record AWS access key ID, secret access key, session token and export into the terminal.
+```bash
+export AWS_ACCESS_KEY_ID="xxx"
+export AWS_SECRET_ACCESS_KEY="xxx"
+export AWS_SESSION_TOKEN="xxx" 
+```
+
+**4. Start the Spark Engine**
 Initialize the processing layer (requires Kafka and Hadoop-AWS packages):
 ```bash
 spark-submit \
@@ -90,7 +99,7 @@ spark-submit \
   spark_consumer.py
 ```
 
-**4. Launch the Visualization Dashboard**
+**5. Launch the Visualization Dashboard**
 In a new terminal (with Java 17 exported), start Streamlit:
 ```bash
 streamlit run dashboard.py
