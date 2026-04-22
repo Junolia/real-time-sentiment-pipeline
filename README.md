@@ -13,9 +13,8 @@ The system utilizes a modern Big Data streaming pipeline:
 4. **Storage (Cold Path):** AWS S3 for long-term Parquet storage.
 5. **Serving (Hot Path):** A secondary Kafka topic feeding a Streamlit frontend.
 
-*( insert architecture diagram )*
+![Architecture Diagram](Architecture%20Diagram.jpg)
 
----
 
 ## Data
 
@@ -34,7 +33,6 @@ The data is mapped and injected into Kafka using the following JSON schema:
 * `created_utc` (Float): Time-shifted UNIX timestamp to simulate real-time ingestion.
 * `parent_id` / `comment_id` / `link_id` (Strings): Metadata for thread aggregation.
 
----
 
 ## Process
 
@@ -48,7 +46,6 @@ A PySpark application that subscribes to the Kafka topic.
 * **Outputs:** * Appends processed data to an AWS S3 bucket in `.parquet` format for historical batch processing.
     * Streams the enriched data back to Kafka into the `dashboard_feed` topic.
 
----
 
 ## Results
 
@@ -61,7 +58,6 @@ The final output is rendered via a Streamlit application engineered with a dual-
     * Top 5 Positive and Top 5 Negative Subreddits (Horizontal Bar Charts).
     * Natural Language Processing (NLP) insights detailing the most frequently mentioned words (excluding standard stop-words).
 
----
 
 ## Reproduce Guidelines
 
