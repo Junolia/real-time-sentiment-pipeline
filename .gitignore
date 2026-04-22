@@ -208,3 +208,18 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Big Data & Local Datasets
+*.csv
+*.json
+*.parquet
+kaggle_RC_2019-05/
+
+# Spark & Kafka States
+checkpoints/
+spark-warehouse/
+
+# Python Virtual Environment
+.venv/
+__pycache__/
+.DS_Store
