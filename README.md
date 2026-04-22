@@ -66,7 +66,7 @@ The final output is rendered via a Streamlit application engineered with a dual-
 * **Apache Kafka:** Must be installed and running locally on port `9092`.
 * **Python 3.12+:** With virtual environment containing `pyspark`, `kafka-python`, `streamlit`, `pandas`, `plotly`, and `vaderSentiment`.
 * **AWS Credentials:** Configured locally or passed via environment variables for S3 access.
-* **Create a S3 bucket:** Renamed the Keep the configuration as default.
+* **Create a S3 bucket:** Renamed the bucket and keep the configuration as default.
 
 ### Execution Steps
 
@@ -105,7 +105,7 @@ In a new terminal (with Java 17 exported), start Streamlit:
 streamlit run dashboard.py
 ```
 
-**5. Initiate the Data Stream**
+**6. Initiate the Data Stream**
 Finally, start the load injector to begin pushing the 2GB dataset through the pipeline:
 ```bash
 python macro_producer.py
